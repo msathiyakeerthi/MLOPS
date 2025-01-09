@@ -1,0 +1,138 @@
+Directory structure:
+└── kuuyyaa-FHIR-Patient-App/
+    ├── README.md
+    ├── app.html
+    ├── index.html
+    ├── launch.html
+    └── assets/
+
+================================================
+File: /README.md
+================================================
+# Epic Patient App Demo 
+Patient facing app [demo](https://kuuyyaa.github.io/FHIR-Patient-App/) testing functionality of Epic FHIR APIs. This example uses test data provided by Epic and displays a fake patients HgA1C results as well as the effective date and time. 
+
+## Usage
+Deployed demo redirects user to MyChart. When prompted, log in using Epic's test log in. Documentation for Sandbox test data can be viewed [here](https://fhir.epic.com/Documentation?docId=testpatients). For this example, log-in credentials for test patient Camila Lopez can be used.
+
+![MyChart Log-in](./assets/Epic-Login.png)
+
+Once logged in, user is prompted to provide consent to share data. For the purpose of this demo, agree to all prompts. The user will then be redirected to the patient facing app, where the request is displayed (HbA1C in this case!).
+![patient facing app](./assets/redirect-page.png)
+
+
+
+
+================================================
+File: /app.html
+================================================
+<!DOCTYPE html>
+<html>
+
+<head>
+
+	<script src='dist/fhir-client-v2.js'></script>
+	<script src="https://code.jquery.com/jquery-3.4.1.min.js"></script>
+
+  <style>
+    #main{background:lightgray; margin:1em; padding:1em;font-size:2em;}
+  </style>
+</head>
+
+<body>
+
+  <div id="main"></div>
+
+	<script>
+
+		var myApp = {}
+
+    FHIR.oauth2.ready()
+    .then(function(client){ 
+      myApp.smart = client
+      doRequests()
+    })
+
+    async function doRequests(){
+
+      var loincs = [ encodeURIComponent("http://loinc.org|4548-4") ] //4548-4 = HgA1C  //4544-3 = hematocrit
+      var obs = await fetch(myApp.smart.state.serverUrl+"/Observation?patient="+myApp.smart.patient.id+"&limit=50&code="+loincs.join(","),{
+        headers:{  
+          "Accept":"application/json+fhir",
+          "Authorization":"Bearer "+myApp.smart.state.tokenResponse.access_token
+        }
+        }).then(function(data){
+          return data
+      })
+
+      var response = await obs.json()
+
+      console.log(response)
+
+      var toInsert = ""
+
+//if there is no entry, then there was no test found
+      if (!response.entry[0]){
+
+        toInsert += "We could not find you were tested for HgA1C at this provider."
+
+      }else{
+        
+        toInsert += "Your HgA1C was tested on "+response.entry[0].resource.effectiveDateTime+"<br/><br/>"
+
+        toInsert += "Your HgA1C was "+response.entry[0].resource.valueQuantity.value+"<br/><br/>"
+
+        toInsert += "A1c is measured primarily to determine the three-month average blood sugar level and can be used as a diagnostic test for diabetes mellitus.  <5.7%	Normal, 5.7-6.4%	Prediabetes, >6.5%	Diabetes."
+      }
+
+      $("#main").html(toInsert)
+
+    }
+	</script>
+
+</body>
+
+</html>
+
+================================================
+File: /index.html
+================================================
+<!DOCTYPE html>
+<html>
+
+<head>
+
+</head>
+
+<body>
+	<a href="launch.html?iss=https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4&aud=">Login here</a>
+</body>
+
+</html>
+
+================================================
+File: /launch.html
+================================================
+<!DOCTYPE html>
+<html>
+
+<head>
+	<script src='dist/fhir-client-v2.js'>
+	</script>
+</head>
+
+<body>
+	<p>Redirecting...</p>
+
+	<script>
+		FHIR.oauth2.authorize({
+      'client_id': '40dfced0-5ce4-4d72-8ea0-eee6472e1f40',
+      'scope':  'PATIENT.READ, PATIENT.SEARCH, OBSERVATION.READ, OBSERVATION.SEARCH',
+      'redirect_uri': 'https://kuuyyaa.github.io/FHIR-Patient-App/app.html'
+    });
+	</script>
+
+</body>
+
+</html>
+
